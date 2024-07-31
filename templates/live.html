@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Webcam Snapshot</title>
+<style>
+    #video {
+        width: 100%;
+        height: auto;
+    }
+</style>
+</head>
+<body>
+    <video id="video" autoplay></video>
+    <button id="startButton">Start Camera</button>
+    <button id="snapButton">Take Snapshot</button>
+    <canvas id="canvas" style="display: none;"></canvas>
+
+    <!-- Include JavaScript -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            const startButton = document.getElementById('startButton');
+            const snapButton = document.getElementById('snapButton');
+            const imageForm = document.getElementById('imageForm');
+            const constraints = {
+                video: true
+            };
+
+            let stream; // To store the video stream
+
+            startButton.addEventListener('click', async () => {
+                try {
+                    // Get access to the webcam
+                    stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    video.srcObject = stream;
+                } catch (err) {
+                    console.error('Error accessing webcam:', err);
+                }
+            });
+
+            snapButton.addEventListener('click', () => {
+                // Get the context of the canvas
+                const context = canvas.getContext('2d');
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                // Convert the canvas content to a data URL
+                const imgData = canvas.toDataURL('image/png');
+
+                // Create a Blob from the base64 data
+                const blob = base64ToBlob(imgData);
+
+                // Create a FormData object
+                const formData = new FormData();
+
+                // Append the Blob as an UploadFile to the FormData
+                formData.append('image', blob, 'snapshot.png');
+
+                // Submit the form with the FormData
+                fetch('/submit_snapshot', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log(data);
+                    // Redirect to the result page
+                    window.location.href = "/result";
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+            });
+
+            // Function to stop the camera stream
+            function stopCameraStream() {
+                if (stream) {
+                    const tracks = stream.getTracks();
+                    tracks.forEach(track => {
+                        track.stop();
+                    });
+                    video.srcObject = null;
+                }
+            }
+
+            // Function to convert base64 to Blob
+            function base64ToBlob(base64Data) {
+                const byteCharacters = atob(base64Data.split(',')[1]);
+                const byteArrays = [];
+                for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+                    const slice = byteCharacters.slice(offset, offset + 512);
+                    const byteNumbers = new Array(slice.length);
+                    for (let i = 0; i < slice.length; i++) {
+                        byteNumbers[i] = slice.charCodeAt(i);
+                    }
+                    const byteArray = new Uint8Array(byteNumbers);
+                    byteArrays.push(byteArray);
+                }
+                return new Blob(byteArrays, { type: 'image/png' });
+            }
+        });
+    </script>
+
+    <!-- Form for submitting the snapshot -->
+    <form id="imageForm" enctype="multipart/form-data" style="display: none;">
+        <input type="file" id="imageInput" name="image">
+    </form>
+</body>
+</html>
