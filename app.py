@@ -37,6 +37,43 @@ stream = None
 class ImageData(BaseModel):
     image: str
 
+
+
+
+
+
+
+
+def check_license_existence(license_plate_number):
+    try:
+        # Create a cursor object
+        cur = conn.cursor()
+
+        # Execute the SQL query to check license existence
+        cur.execute("SELECT COUNT(*) FROM userdb WHERE licence = %s", (license_plate_number,))
+
+        # Fetch the result
+        result = cur.fetchone()
+
+        # Close the cursor
+        cur.close()
+
+        # Check if the count is greater than 0
+        if result[0] > 0:
+            print("Yes")
+            return 1
+        else:
+            print("No")
+            return 0
+
+    except psycopg2.Error as e:
+        print("Error occurred while checking license existence:", e)
+
+
+
+
+
+
 # Define a route to receive the image data and save it
 @app.post("/submit_snapshot", response_class=HTMLResponse)
 async def save_snapshot(request: Request, image: UploadFile = File(...)):
@@ -162,6 +199,9 @@ async def upload_image( request: Request,image_file: UploadFile = File(...)):
 
     store_text_in_database(modified_text)
     
+    print(modified_text)
+
+
     van = " "
     if (check_license_existence(modified_text) == 1):
         van="Is a Native"
@@ -195,11 +235,13 @@ def extract_text_from_red_box(image_path):
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
         # Define lower and upper bounds for red color in HSV
-        lower_red = (0, 100, 100)
-        upper_red = (10, 255, 255)
+        # lower_red = (0, 100, 100)
+        # upper_red = (10, 255, 255)
+        lower_blue = (110, 100, 100)
+        upper_blue = (130, 255, 255)
 
         # Threshold the HSV image to get only red regions
-        mask = cv2.inRange(hsv_image, lower_red, upper_red)
+        mask = cv2.inRange(hsv_image, lower_blue, upper_blue)
 
         # Find contours in the mask
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -286,32 +328,6 @@ def run_detection(source_image, weights_path,det_path,imgname):
 
     # Move the new file to the destination folder
     shutil.move(f"{latest_exp_folder}/{output_file}", destination_folder)
-
-
-def check_license_existence(license_plate_number):
-    try:
-        # Create a cursor object
-        cur = conn.cursor()
-
-        # Execute the SQL query to check license existence
-        cur.execute("SELECT COUNT(*) FROM userdb WHERE licence = %s", (license_plate_number,))
-
-        # Fetch the result
-        result = cur.fetchone()
-
-        # Close the cursor
-        cur.close()
-
-        # Check if the count is greater than 0
-        if result[0] > 0:
-            # print("Yes")
-            return 1
-        else:
-            # print("No")
-            return 0
-
-    except psycopg2.Error as e:
-        print("Error occurred while checking license existence:", e)
 
 
     
